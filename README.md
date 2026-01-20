@@ -15,6 +15,6 @@
    python pdf_merge.py
    ```
 
-3. Select the PDF files you want to merge.
-4. Choose where to save the merged PDF.
-5. Confirm the success message.
+3. Click **파일 추가 (+)** to add PDFs.
+4. Drag items in the list to adjust the merge order.
+5. Use **PDF 병합 및 저장** to choose an output path and merge.
