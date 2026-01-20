@@ -1,7 +1,8 @@
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from pypdf import PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 
 class DraggableListbox(tk.Listbox):
@@ -14,11 +15,9 @@ class DraggableListbox(tk.Listbox):
         self.cur_index = None
 
     def set_current(self, event):
-        """Store the current index on mouse click."""
         self.cur_index = self.nearest(event.y)
 
     def shift_selection(self, event):
-        """Reorder items while dragging the mouse."""
         if self.cur_index is None:
             return
         index = self.nearest(event.y)
@@ -34,36 +33,33 @@ class DraggableListbox(tk.Listbox):
             self.cur_index = index
 
 
-class PDFMergerApp:
+class PDFPageEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("PDF 병합 도구 (순서 변경 가능)")
-        self.root.geometry("500x500")
+        self.root.title("PDF 페이지 상세 편집기")
+        self.root.geometry("600x600")
 
-        button_frame = tk.Frame(root, pady=10)
-        button_frame.pack(fill=tk.X)
+        self.page_data = []
 
-        self.btn_add = tk.Button(
-            button_frame,
-            text="파일 추가 (+)",
+        btn_frame = tk.Frame(root, pady=10)
+        btn_frame.pack(fill=tk.X)
+
+        tk.Button(
+            btn_frame,
+            text="파일 불러오기 (+)",
             command=self.add_files,
             bg="#e1f5fe",
-        )
-        self.btn_add.pack(side=tk.LEFT, padx=10)
-
-        self.btn_remove = tk.Button(
-            button_frame,
-            text="선택 삭제 (-)",
+        ).pack(side=tk.LEFT, padx=10)
+        tk.Button(
+            btn_frame,
+            text="선택 페이지 삭제 (-)",
             command=self.remove_selected,
-        )
-        self.btn_remove.pack(side=tk.LEFT, padx=5)
-
-        self.btn_clear = tk.Button(
-            button_frame,
-            text="전체 초기화",
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            btn_frame,
+            text="초기화",
             command=self.clear_all,
-        )
-        self.btn_clear.pack(side=tk.LEFT, padx=5)
+        ).pack(side=tk.LEFT, padx=5)
 
         list_frame = tk.Frame(root)
         list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
@@ -71,98 +67,124 @@ class PDFMergerApp:
         scrollbar = tk.Scrollbar(list_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.file_listbox = DraggableListbox(
+        self.listbox = DraggableListbox(
             list_frame,
             selectmode=tk.SINGLE,
             yscrollcommand=scrollbar.set,
-            font=("Arial", 10),
+            font=("Consolas", 10),
         )
-        self.file_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=self.file_listbox.yview)
+        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.listbox.yview)
 
-        info_label = tk.Label(
+        tk.Label(
             root,
-            text="💡 팁: 목록의 파일을 마우스로 드래그하여 순서를 바꿀 수 있습니다.",
+            text="💡 팁: 각 '페이지'를 드래그하여 순서를 섞으세요. (여러 파일의 페이지를 섞을 수 있습니다)",
             fg="gray",
-        )
-        info_label.pack(pady=5)
+        ).pack(pady=5)
 
         action_frame = tk.Frame(root, pady=15)
         action_frame.pack(fill=tk.X)
-
-        self.btn_merge = tk.Button(
+        tk.Button(
             action_frame,
-            text="PDF 병합 및 저장",
-            command=self.merge_pdfs,
+            text="새로운 PDF로 저장하기",
+            command=self.save_pdf,
             bg="#4caf50",
             fg="white",
             font=("Arial", 12, "bold"),
             height=2,
-        )
-        self.btn_merge.pack(fill=tk.X, padx=20)
-
-        self.file_paths = []
+        ).pack(fill=tk.X, padx=20)
 
     def add_files(self):
         files = filedialog.askopenfilenames(
             title="PDF 파일 선택",
             filetypes=[("PDF Files", "*.pdf")],
         )
-        if files:
-            for file in files:
-                if file not in self.file_paths:
-                    self.file_paths.append(file)
-                    self.file_listbox.insert(tk.END, file)
+        if not files:
+            return
+
+        for file_path in files:
+            try:
+                reader = PdfReader(file_path)
+                file_name = os.path.basename(file_path)
+                total_pages = len(reader.pages)
+
+                for i in range(total_pages):
+                    display_text = f"[{file_name}] - {i + 1}페이지"
+                    page_info = {
+                        "path": file_path,
+                        "page_index": i,
+                        "display_text": display_text,
+                    }
+                    self.page_data.append(page_info)
+                    self.listbox.insert(tk.END, display_text)
+            except Exception as exc:
+                messagebox.showerror(
+                    "오류",
+                    f"{file_path}를 읽는 중 오류 발생:\n{exc}",
+                )
 
     def remove_selected(self):
-        selection = self.file_listbox.curselection()
+        selection = self.listbox.curselection()
         if not selection:
             return
 
         index = selection[0]
-        file_path = self.file_listbox.get(index)
-
-        self.file_listbox.delete(index)
-        if file_path in self.file_paths:
-            self.file_paths.remove(file_path)
+        self.listbox.delete(index)
+        del self.page_data[index]
 
     def clear_all(self):
-        self.file_listbox.delete(0, tk.END)
-        self.file_paths = []
+        self.listbox.delete(0, tk.END)
+        self.page_data = []
 
-    def merge_pdfs(self):
-        current_files = self.file_listbox.get(0, tk.END)
-
-        if not current_files:
-            messagebox.showwarning("경고", "병합할 파일이 없습니다.")
+    def save_pdf(self):
+        if not self.page_data:
+            messagebox.showwarning("경고", "저장할 페이지가 없습니다.")
             return
 
         save_path = filedialog.asksaveasfilename(
-            title="저장할 파일명 입력",
+            title="저장",
             defaultextension=".pdf",
             filetypes=[("PDF Files", "*.pdf")],
         )
-
         if not save_path:
             return
 
-        merger = PdfWriter()
-        try:
-            for path in current_files:
-                merger.append(path)
+        writer = PdfWriter()
+        opened_files = {}
 
-            merger.write(save_path)
-            messagebox.showinfo(
-                "완료",
-                f"성공적으로 병합되었습니다!\n\n저장 위치:\n{save_path}",
-            )
+        try:
+            current_list_items = self.listbox.get(0, tk.END)
+            temp_data_pool = self.page_data.copy()
+            final_pages = []
+
+            for item_text in current_list_items:
+                for i, data in enumerate(temp_data_pool):
+                    if data["display_text"] == item_text:
+                        final_pages.append(data)
+                        temp_data_pool.pop(i)
+                        break
+
+            for page_info in final_pages:
+                path = page_info["path"]
+                idx = page_info["page_index"]
+
+                if path not in opened_files:
+                    opened_files[path] = PdfReader(path)
+
+                writer.add_page(opened_files[path].pages[idx])
+
+            writer.write(save_path)
+            messagebox.showinfo("성공", "파일이 저장되었습니다!")
         except Exception as exc:
-            messagebox.showerror("오류", f"병합 중 오류가 발생했습니다:\n{exc}")
+            messagebox.showerror(
+                "오류",
+                f"저장 중 문제가 발생했습니다:\n{exc}",
+            )
         finally:
-            merger.close()
+            writer.close()
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = PDFMergerApp(root)
+    app = PDFPageEditorApp(root)
     root.mainloop()
