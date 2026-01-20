@@ -6,6 +6,7 @@
 
    ```bash
    pip install pypdf
+   (vscode terminal) python -m pip install pypdf
    ```
 
 2. Run the script:
