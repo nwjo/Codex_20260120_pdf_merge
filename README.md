@@ -2,10 +2,10 @@
 
 ## Usage
 
-1. Install the dependency:
+1. Install the dependencies:
 
    ```bash
-   pip install pypdf
+   pip install pypdf pillow
    ```
 
 2. Run the script:
@@ -14,9 +14,9 @@
    python pdf_merge.py
    ```
 
-3. Click **파일 불러오기 (+)** to load PDFs and list every page.
-4. Drag pages in the list to reorder them across files.
-5. Use **새로운 PDF로 저장하기** to pick an output path and save.
+3. Click **📂 파일 추가 (PDF/IMG)** to load PDFs or images.
+4. Drag items in the list (or use ▲/▼) to reorder pages.
+5. Use **💾 PDF로 변환 및 병합 저장** to pick an output path and save.
 
 ## Build a standalone EXE (Windows)
 
