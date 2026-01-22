@@ -17,7 +17,7 @@
 3. Click **📂 파일 추가** to load PDFs or images.
 4. Drag items in the list (or use ▲/▼) to reorder pages.
 5. Select an item to preview it, then zoom with the mouse wheel and pan by dragging.
-6. Use **💾 PDF 병합 저장** to pick an output path and save.
+6. Use **💾 저장** to pick an output path and save.
 
 ## Build a standalone EXE (Windows)
 

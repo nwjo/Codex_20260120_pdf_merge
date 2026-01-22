@@ -9,7 +9,7 @@ from pypdf import PdfReader, PdfWriter
 
 
 class DraggableListbox(tk.Listbox):
-    """Listbox with drag-and-drop reordering synced to data."""
+    """드래그 앤 드롭 및 데이터 동기화 리스트박스"""
 
     def __init__(self, master, data_ref=None, on_select_callback=None, **kw):
         super().__init__(master, **kw)
@@ -51,16 +51,14 @@ class DraggableListbox(tk.Listbox):
 
 
 class ZoomableImageCanvas(tk.Canvas):
-    """Canvas with zoom and pan for image preview."""
+    """이미지 확대/축소 및 이동(Pan)이 가능한 캔버스"""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.config(highlightthickness=0, bg="gray")
-
+        self.config(highlightthickness=0, bg="#404040")
         self.original_image = None
         self.shown_image = None
         self.imscale = 1.0
-        self.image_id = None
 
         self.bind("<ButtonPress-1>", self.move_start)
         self.bind("<B1-Motion>", self.move_move)
@@ -71,23 +69,19 @@ class ZoomableImageCanvas(tk.Canvas):
     def set_image(self, pil_image):
         self.original_image = pil_image
         self.imscale = 1.0
-
         c_width = self.winfo_width()
         c_height = self.winfo_height()
         if c_width > 10 and c_height > 10:
             img_w, img_h = pil_image.size
             ratio = min(c_width / img_w, c_height / img_h)
             self.imscale = ratio if ratio < 1.0 else 1.0
-
         self.redraw_image()
 
     def redraw_image(self):
         if not self.original_image:
             return
-
         new_width = int(self.original_image.width * self.imscale)
         new_height = int(self.original_image.height * self.imscale)
-
         if new_width < 10 or new_height < 10:
             return
 
@@ -98,7 +92,7 @@ class ZoomableImageCanvas(tk.Canvas):
         self.shown_image = ImageTk.PhotoImage(resized_pil)
 
         self.delete("all")
-        self.image_id = self.create_image(0, 0, image=self.shown_image, anchor="nw")
+        self.create_image(0, 0, image=self.shown_image, anchor="nw")
         self.config(scrollregion=self.bbox("all"))
 
     def move_start(self, event):
@@ -110,22 +104,20 @@ class ZoomableImageCanvas(tk.Canvas):
     def zoom(self, event):
         if not self.original_image:
             return
-
         if event.num == 5 or event.delta < 0:
             scale_multiplier = 0.9
         else:
             scale_multiplier = 1.1
-
         new_scale = self.imscale * scale_multiplier
         if 0.1 < new_scale < 5.0:
             self.imscale = new_scale
             self.redraw_image()
 
 
-class PDFMergerPreviewApp:
+class PDFMergerCleanApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("고급 PDF 병합기 (미리보기: 휠=줌, 드래그=이동)")
+        self.root.title("PDF 병합 심플")
         self.root.geometry("1000x700")
 
         self.page_data = []
@@ -133,16 +125,17 @@ class PDFMergerPreviewApp:
         main_pane = tk.PanedWindow(
             root,
             orient=tk.HORIZONTAL,
-            sashwidth=5,
-            bg="#d9d9d9",
+            sashwidth=3,
+            sashrelief=tk.FLAT,
+            bg="#e0e0e0",
         )
         main_pane.pack(fill=tk.BOTH, expand=True)
 
         left_frame = tk.Frame(main_pane)
         main_pane.add(left_frame, minsize=350)
 
-        right_frame = tk.Frame(main_pane, bg="gray")
-        main_pane.add(right_frame, minsize=500)
+        right_frame = tk.Frame(main_pane, bg="#404040")
+        main_pane.add(right_frame, minsize=400)
 
         btn_frame = tk.Frame(left_frame, pady=10)
         btn_frame.pack(fill=tk.X)
@@ -158,13 +151,20 @@ class PDFMergerPreviewApp:
             btn_frame,
             text="❌ 삭제",
             command=self.remove_selected,
-        ).pack(side=tk.LEFT, padx=5)
+        ).pack(side=tk.LEFT, padx=2)
         tk.Button(
             btn_frame,
             text="🧹 초기화",
             command=self.clear_all,
-        ).pack(side=tk.LEFT, padx=5)
+        ).pack(side=tk.LEFT, padx=2)
 
+        tk.Button(
+            btn_frame,
+            text="💾 저장",
+            command=self.save_pdf,
+            bg="#4CAF50",
+            fg="white",
+        ).pack(side=tk.RIGHT, padx=5)
         tk.Button(
             btn_frame,
             text="▼",
@@ -187,45 +187,18 @@ class PDFMergerPreviewApp:
             yscrollcommand=list_scroll.set,
             font=("Consolas", 10),
         )
-        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        self.listbox.pack(
+            side=tk.LEFT,
+            fill=tk.BOTH,
+            expand=True,
+            padx=5,
+            pady=(0, 5),
+        )
         list_scroll.config(command=self.listbox.yview)
 
-        bottom_frame = tk.Frame(left_frame, pady=10)
-        bottom_frame.pack(fill=tk.X, side=tk.BOTTOM)
-
-        self.status_label = tk.Label(
-            bottom_frame,
-            text="준비 완료",
-            anchor="w",
-            fg="gray",
-        )
-        self.status_label.pack(fill=tk.X, padx=5)
-
-        tk.Button(
-            bottom_frame,
-            text="💾 PDF 병합 저장",
-            command=self.save_pdf,
-            bg="#4CAF50",
-            fg="white",
-            font=("Arial", 12, "bold"),
-            height=2,
-        ).pack(fill=tk.X, padx=10, pady=5)
-
-        self.canvas = ZoomableImageCanvas(right_frame, bg="#404040")
+        self.canvas = ZoomableImageCanvas(right_frame)
         self.canvas.pack(fill=tk.BOTH, expand=True)
-
-        self.canvas.create_text(
-            250,
-            300,
-            text=(
-                "파일을 선택하면 미리보기가 표시됩니다.\n\n"
-                "[조작법]\n"
-                "마우스 휠: 확대/축소\n"
-                "드래그: 화면 이동"
-            ),
-            fill="white",
-            justify="center",
-        )
+        self.canvas.create_text(300, 300, text="[미리보기]", fill="white", justify="center")
 
     def add_files(self):
         files = filedialog.askopenfilenames(
@@ -234,11 +207,9 @@ class PDFMergerPreviewApp:
         )
         if not files:
             return
-
         for file_path in files:
             ext = os.path.splitext(file_path)[1].lower()
             fname = os.path.basename(file_path)
-
             try:
                 if ext == ".pdf":
                     reader = PdfReader(file_path)
@@ -254,41 +225,30 @@ class PDFMergerPreviewApp:
                         self.listbox.insert(tk.END, f"[PDF] {fname} - {i + 1}p")
                 elif ext in {".jpg", ".jpeg", ".png", ".bmp"}:
                     self.page_data.append(
-                        {
-                            "type": "image",
-                            "path": file_path,
-                            "page_index": None,
-                        }
+                        {"type": "image", "path": file_path, "page_index": None}
                     )
                     self.listbox.insert(tk.END, f"[IMG] {fname}")
             except Exception as exc:
-                messagebox.showerror("에러", f"파일 로드 실패: {exc}")
-
-        self.status_label.config(text=f"총 {len(self.page_data)} 페이지 로드됨")
+                messagebox.showerror("에러", str(exc))
 
     def show_preview(self, index):
         if index >= len(self.page_data):
             return
-
         item = self.page_data[index]
         pil_image = None
-
         try:
             if item["type"] == "image":
                 pil_image = Image.open(item["path"])
             elif item["type"] == "pdf":
                 doc = fitz.open(item["path"])
-                page = doc.load_page(item["page_index"])
-                pix = page.get_pixmap(dpi=150)
+                pix = doc.load_page(item["page_index"]).get_pixmap(dpi=150)
                 mode = "RGBA" if pix.alpha else "RGB"
                 pil_image = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
                 doc.close()
-
             if pil_image:
                 self.canvas.set_image(pil_image)
-                self.status_label.config(text=f"미리보기: {item.get('path')}")
-        except Exception as exc:
-            print(f"미리보기 오류: {exc}")
+        except Exception:
+            pass
 
     def remove_selected(self):
         selection = self.listbox.curselection()
@@ -336,7 +296,6 @@ class PDFMergerPreviewApp:
         )
         if not save_path:
             return
-
         writer = PdfWriter()
         try:
             for data in self.page_data:
@@ -346,17 +305,17 @@ class PDFMergerPreviewApp:
                     with Image.open(data["path"]) as img:
                         if img.mode in ("RGBA", "P"):
                             img = img.convert("RGB")
-                        img_bytes = io.BytesIO()
-                        img.save(img_bytes, format="PDF")
-                        img_bytes.seek(0)
-                        writer.add_page(PdfReader(img_bytes).pages[0])
+                        buffer = io.BytesIO()
+                        img.save(buffer, format="PDF")
+                        buffer.seek(0)
+                        writer.add_page(PdfReader(buffer).pages[0])
             writer.write(save_path)
-            messagebox.showinfo("성공", "저장 완료!")
+            messagebox.showinfo("완료", "성공적으로 저장되었습니다!")
         except Exception as exc:
             messagebox.showerror("오류", str(exc))
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = PDFMergerPreviewApp(root)
+    app = PDFMergerCleanApp(root)
     root.mainloop()
